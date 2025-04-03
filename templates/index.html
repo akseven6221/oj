@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>文件上传</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+        }
+        .user-info { 
+            background: #f5f5f5; 
+            padding: 12px; 
+            margin-bottom: 20px; 
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .upload-form { 
+            border: 2px dashed #ccc; 
+            padding: 25px; 
+            text-align: center;
+            background-color: #fafafa;
+            border-radius: 8px;
+        }
+        .submit-button { 
+            background-color: #4CAF50; 
+            color: white; 
+            padding: 12px 24px; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            margin-top: 15px;
+            font-size: 16px;
+        }
+        .submit-button:hover { 
+            background-color: #45a049; 
+        }
+        .actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 25px;
+        }
+        .action-link { 
+            color: #2196F3; 
+            text-decoration: none;
+            padding: 8px 16px;
+            background-color: #e3f2fd;
+            border-radius: 4px;
+        }
+        .action-link:hover {
+            background-color: #bbdefb;
+        }
+        .logout-link { 
+            color: #f44336; 
+            text-decoration: none;
+            padding: 8px 12px;
+            border: 1px solid #f44336;
+            border-radius: 4px;
+        }
+        .logout-link:hover {
+            background-color: #ffebee;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .file-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 25px;
+        }
+        .action-btn { 
+            color: #2196F3; 
+            text-decoration: none;
+            padding: 8px 16px;
+            background-color: #e3f2fd;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        .action-btn:hover {
+            background-color: #bbdefb;
+        }
+    </style>
+</head>
+<body>
+    <div class="user-info">
+        <p>欢迎，{{username}} ({{role}})</p>
+    </div>
+    <h1>文件上传</h1>
+    <div class="upload-form">
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            <input type="file" name="file" required>
+            <br>
+            <button type="submit" class="submit-button">上传文件</button>
+        </form>
+    </div>
+    
+    <div class="file-actions">
+        <div>
+            <a href="/files/{{username}}" class="action-btn">我的文件</a>
+            <a href="/uploads" class="action-btn">上传记录</a>
+            {{admin_panel}}
+        </div>
+        <a href="/logout" class="logout-link">退出登录</a>
+    </div>
+</body>
+</html>
