@@ -71,6 +71,24 @@ async fn init_tables(pool: &DbPool) -> Result<(), DbError> {
     .execute(pool)
     .await?;
     
+    // 创建测试结果表
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS test_results (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            status VARCHAR(20) NOT NULL,
+            output TEXT,
+            error TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+        "#,
+    )
+    .execute(pool)
+    .await?;
+    
     Ok(())
 }
 
@@ -414,5 +432,208 @@ impl UploadRepo {
         .await?;
         
         Ok(uploads)
+    }
+}
+
+// 测试结果相关的数据库操作
+pub struct TestRepo;
+
+impl TestRepo {
+    // 创建新的测试记录
+    pub async fn create_test(pool: &DbPool, user_id: i32) -> Result<i32, DbError> {
+        let result = sqlx::query(
+            r#"
+            INSERT INTO test_results (user_id, status)
+            VALUES (?, 'Pending')
+            "#,
+        )
+        .bind(user_id)
+        .execute(pool)
+        .await?;
+        
+        Ok(result.last_insert_id() as i32)
+    }
+    
+    // 更新测试状态
+    pub async fn update_test_status(
+        pool: &DbPool,
+        id: i32,
+        status: crate::models::TestStatus,
+    ) -> Result<(), DbError> {
+        let status_str = match status {
+            crate::models::TestStatus::Pending => "Pending",
+            crate::models::TestStatus::Running => "Running",
+            crate::models::TestStatus::Passed => "Passed", 
+            crate::models::TestStatus::Failed => "Failed",
+            crate::models::TestStatus::Error => "Error",
+        };
+        
+        sqlx::query(
+            r#"
+            UPDATE test_results
+            SET status = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            "#,
+        )
+        .bind(status_str)
+        .bind(id)
+        .execute(pool)
+        .await?;
+        
+        Ok(())
+    }
+    
+    // 更新测试结果
+    pub async fn update_test_result(
+        pool: &DbPool,
+        id: i32,
+        status: crate::models::TestStatus,
+        output: Option<String>,
+        error: Option<String>,
+    ) -> Result<(), DbError> {
+        let status_str = match status {
+            crate::models::TestStatus::Pending => "Pending",
+            crate::models::TestStatus::Running => "Running", 
+            crate::models::TestStatus::Passed => "Passed",
+            crate::models::TestStatus::Failed => "Failed",
+            crate::models::TestStatus::Error => "Error",
+        };
+        
+        sqlx::query(
+            r#"
+            UPDATE test_results
+            SET status = ?, output = ?, error = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            "#,
+        )
+        .bind(status_str)
+        .bind(output)
+        .bind(error)
+        .bind(id)
+        .execute(pool)
+        .await?;
+        
+        Ok(())
+    }
+    
+    // 获取用户的测试结果
+    pub async fn get_user_tests(pool: &DbPool, user_id: i32) -> Result<Vec<crate::models::TestResult>, DbError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT tr.id, tr.user_id, u.username, tr.status, tr.output, tr.error, 
+                   tr.created_at, tr.updated_at
+            FROM test_results tr
+            JOIN users u ON tr.user_id = u.id
+            WHERE tr.user_id = ?
+            ORDER BY tr.created_at DESC
+            "#,
+        )
+        .bind(user_id)
+        .fetch_all(pool)
+        .await?;
+        
+        let mut results = Vec::with_capacity(rows.len());
+        
+        for row in rows {
+            let status = match row.get::<String, _>("status").as_str() {
+                "Pending" => crate::models::TestStatus::Pending,
+                "Running" => crate::models::TestStatus::Running,
+                "Passed" => crate::models::TestStatus::Passed,
+                "Failed" => crate::models::TestStatus::Failed,
+                _ => crate::models::TestStatus::Error,
+            };
+            
+            results.push(crate::models::TestResult {
+                id: row.get("id"),
+                user_id: row.get("user_id"),
+                username: row.get("username"),
+                status,
+                output: row.get("output"),
+                error: row.get("error"),
+                created_at: row.get("created_at"),
+                updated_at: row.get("updated_at"),
+            });
+        }
+        
+        Ok(results)
+    }
+    
+    // 获取所有测试结果(管理员使用)
+    pub async fn get_all_tests(pool: &DbPool) -> Result<Vec<crate::models::TestResult>, DbError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT tr.id, tr.user_id, u.username, tr.status, tr.output, tr.error,
+                   tr.created_at, tr.updated_at
+            FROM test_results tr
+            JOIN users u ON tr.user_id = u.id
+            ORDER BY tr.created_at DESC
+            "#,
+        )
+        .fetch_all(pool)
+        .await?;
+        
+        let mut results = Vec::with_capacity(rows.len());
+        
+        for row in rows {
+            let status = match row.get::<String, _>("status").as_str() {
+                "Pending" => crate::models::TestStatus::Pending,
+                "Running" => crate::models::TestStatus::Running,
+                "Passed" => crate::models::TestStatus::Passed,
+                "Failed" => crate::models::TestStatus::Failed,
+                _ => crate::models::TestStatus::Error,
+            };
+            
+            results.push(crate::models::TestResult {
+                id: row.get("id"),
+                user_id: row.get("user_id"),
+                username: row.get("username"),
+                status,
+                output: row.get("output"),
+                error: row.get("error"),
+                created_at: row.get("created_at"),
+                updated_at: row.get("updated_at"),
+            });
+        }
+        
+        Ok(results)
+    }
+    
+    // 获取单个测试结果详情
+    pub async fn get_test_by_id(pool: &DbPool, id: i32) -> Result<Option<crate::models::TestResult>, DbError> {
+        let row = sqlx::query(
+            r#"
+            SELECT tr.id, tr.user_id, u.username, tr.status, tr.output, tr.error,
+                   tr.created_at, tr.updated_at
+            FROM test_results tr
+            JOIN users u ON tr.user_id = u.id
+            WHERE tr.id = ?
+            "#,
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?;
+        
+        if let Some(row) = row {
+            let status = match row.get::<String, _>("status").as_str() {
+                "Pending" => crate::models::TestStatus::Pending,
+                "Running" => crate::models::TestStatus::Running,
+                "Passed" => crate::models::TestStatus::Passed,
+                "Failed" => crate::models::TestStatus::Failed,
+                _ => crate::models::TestStatus::Error,
+            };
+            
+            Ok(Some(crate::models::TestResult {
+                id: row.get("id"),
+                user_id: row.get("user_id"),
+                username: row.get("username"),
+                status,
+                output: row.get("output"),
+                error: row.get("error"),
+                created_at: row.get("created_at"),
+                updated_at: row.get("updated_at"),
+            }))
+        } else {
+            Ok(None)
+        }
     }
 }

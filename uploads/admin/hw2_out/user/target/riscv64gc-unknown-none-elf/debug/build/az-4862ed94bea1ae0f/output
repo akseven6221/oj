@@ -1,0 +1,6 @@
+$ mkdir -p "/home/alioth/rCore-Tutorial-v3/user/target/riscv64gc-unknown-none-elf/debug/build/az-4862ed94bea1ae0f/out/try_track_caller"
+$ cd "/home/alioth/rCore-Tutorial-v3/user/target/riscv64gc-unknown-none-elf/debug/build/az-4862ed94bea1ae0f/out/try_track_caller"
+$ printf '%s' "// try_tra"... > "/home/alioth/rCore-Tutorial-v3/user/target/riscv64gc-unknown-none-elf/debug/build/az-4862ed94bea1ae0f/out/try_track_caller/try_track_caller.rs"
+$ cd "/home/alioth/rCore-Tutorial-v3/user/target/riscv64gc-unknown-none-elf/debug/build/az-4862ed94bea1ae0f/out/try_track_caller" && "rustc" "try_track_caller.rs" "--emit=dep-info,metadata" >& /dev/null
+cargo:rustc-cfg=track_caller
+$ rm -r "/home/alioth/rCore-Tutorial-v3/user/target/riscv64gc-unknown-none-elf/debug/build/az-4862ed94bea1ae0f/out/try_track_caller"

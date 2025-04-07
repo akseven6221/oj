@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use sqlx::mysql::MySqlPool;
 
+use crate::tester::TestQueue;
+
 // 用户角色枚举
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum UserRole {
@@ -28,6 +30,7 @@ pub struct Session {
 #[derive(Clone)]
 pub struct AppState {
     pub db_pool: Arc<MySqlPool>,
+    pub test_queue: Arc<TestQueue>, // 新增
 }
 
 // 登录表单
@@ -62,10 +65,43 @@ pub struct UploadRecord {
     pub username: Option<String>,
 }
 
+// 评测状态枚举
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum TestStatus {
+    Pending,    // 等待评测
+    Running,    // 评测中
+    Passed,     // 通过
+    Failed,     // 失败
+    Error       // 发生错误
+}
+
+// 评测结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestResult {
+    pub id: i32,
+    pub user_id: i32,
+    pub username: String,
+    pub status: TestStatus,
+    pub output: Option<String>,
+    pub error: Option<String>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+// 评测任务
+#[derive(Debug, Clone)]
+pub struct TestTask {
+    pub id: i32,
+    pub user_id: i32,
+    pub username: String,
+    pub work_dir: String,
+}
+
 impl AppState {
-    pub fn new(pool: MySqlPool) -> Self {
+    pub fn new(pool: MySqlPool, test_queue: Arc<TestQueue>) -> Self {
         AppState {
             db_pool: Arc::new(pool),
+            test_queue,
         }
     }
 }

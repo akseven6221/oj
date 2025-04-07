@@ -1,0 +1,12 @@
+/home/alioth/rCore-Tutorial-v3/user/target/riscv64gc-unknown-none-elf/debug/deps/libspin-681187786b2b3f00.rmeta: /home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/lib.rs /home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/barrier.rs /home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/lazy.rs /home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/mutex.rs /home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/mutex/spin.rs /home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/mutex/ticket.rs /home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/once.rs /home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/rw_lock.rs
+
+/home/alioth/rCore-Tutorial-v3/user/target/riscv64gc-unknown-none-elf/debug/deps/spin-681187786b2b3f00.d: /home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/lib.rs /home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/barrier.rs /home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/lazy.rs /home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/mutex.rs /home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/mutex/spin.rs /home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/mutex/ticket.rs /home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/once.rs /home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/rw_lock.rs
+
+/home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/lib.rs:
+/home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/barrier.rs:
+/home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/lazy.rs:
+/home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/mutex.rs:
+/home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/mutex/spin.rs:
+/home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/mutex/ticket.rs:
+/home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/once.rs:
+/home/alioth/.cargo/registry/src/mirrors.ustc.edu.cn-04b7754156161b43/spin-0.7.1/src/rw_lock.rs:

@@ -1,4 +1,3 @@
-
 use crate::database::UploadRepo;
 use crate::models::{AppState, User, UserRole, UploadRecord};
 use crate::templates::{index_template, uploads_template};
@@ -80,10 +79,31 @@ pub async fn upload_handler(
                 
                 match extract_zip_and_replace_user_dir(&upload_path, &user.username, &extract_dir_name) {
                     Ok(_) => {
-                        return Html(format!(
-                            r#"<script>alert('文件 {} ({} 字节) 上传并解压成功！已保存到 {}'); window.location.href='/';</script>"#,
-                            filename, size, extract_dir_name
-                        )).into_response();
+                        // 创建测试记录并添加到队列
+                        match crate::database::TestRepo::create_test(&state.db_pool, user.id).await {
+                            Ok(test_id) => {
+                                // 添加到��试队列
+                                let task = crate::models::TestTask {
+                                    id: test_id,
+                                    user_id: user.id,
+                                    username: user.username.clone(),
+                                    work_dir: format!("uploads/{}/{}", user.username, extract_dir_name),
+                                };
+                                
+                                state.test_queue.add_task(task).await;
+                                
+                                return Html(format!(
+                                    r#"<script>alert('文件上传成功！已加入测试队列，请稍后查看测试结果。'); window.location.href='/test_results';</script>"#
+                                )).into_response();
+                            }
+                            Err(e) => {
+                                tracing::error!("Failed to create test record: {}", e);
+                                return Html(format!(
+                                    r#"<script>alert('文件上传成功，但创建测试记录失败: {}'); window.location.href='/';</script>"#,
+                                    e
+                                )).into_response();
+                            }
+                        }
                     }
                     Err(e) => {
                         tracing::error!("解压缩失败: {}", e);
@@ -144,7 +164,7 @@ pub async fn view_uploads(
 
 // 解压ZIP文件并替换user目录的函数
 fn extract_zip_and_replace_user_dir(zip_path: &PathBuf, username: &str, extract_dir_name: &str) -> Result<(), String> {
-    // 创建解压��时目录，改为使用传入的目录名
+    // 创建解压时目录，改为使用传入的目录名
     let extract_dir = format!("uploads/{}/{}", username, extract_dir_name);
     
     // 确保解压目录存在并为空

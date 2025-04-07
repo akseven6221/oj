@@ -119,8 +119,7 @@ pub async fn view_user_files(
             // 修复 chrono 废弃方法警告
             let time_str = match modified {
                 Some(timestamp) => {
-                    let dt = chrono::NaiveDateTime::from_timestamp_opt(timestamp as i64, 0)
-                        .map(|ndt| chrono::DateTime::<chrono::Utc>::from_utc(ndt, chrono::Utc))
+                    let dt = chrono::DateTime::from_timestamp(timestamp as i64, 0)
                         .unwrap_or_else(|| chrono::Utc::now());
                     dt.format("%Y-%m-%d %H:%M:%S").to_string()
                 }
@@ -189,16 +188,16 @@ pub async fn view_user_files(
 // 下载文件处理函数
 pub async fn download_file(
     Extension(user): Extension<User>,
-    Path((target_username, filename)): Path<(String, String)>,
     State(state): State<AppState>,
+    Path((username, filename)): Path<(String, String)>,
 ) -> impl IntoResponse {
     // 检查权限：只能下载自己的或者管理员可以下载所有人的
-    if user.username != target_username && !matches!(user.role, UserRole::Admin) {
+    if user.username != username && !matches!(user.role, UserRole::Admin) {
         return Html("<script>alert('您没有权限下载此文件'); window.location.href='/';</script>".to_string()).into_response();
     }
     
     // 获取目标用户信息
-    let _target_user = match UserRepo::get_user_by_username(&state.db_pool, &target_username).await {
+    let _target_user = match UserRepo::get_user_by_username(&state.db_pool, &username).await {
         Ok(Some(u)) => u,
         Ok(None) => return Html("<script>alert('用户不存在'); window.location.href='/';</script>".to_string()).into_response(),
         Err(e) => {
@@ -208,34 +207,76 @@ pub async fn download_file(
     };
     
     // 构建文件路径
-    let file_path = format!("uploads/{}/{}", target_username, filename);
+    let file_path = format!("uploads/{}/{}", username, filename);
     
     // 检查文件是否存在
-    if let Ok(metadata) = tokio::fs::metadata(&file_path).await {
-        if metadata.is_dir() {
-            // 如果是目录，重定向到目录列表
-            return Redirect::to(&format!("/files/{}/{}", target_username, filename)).into_response();
-        } else {
-            // 如果是文件，提供下载
-            match tokio::fs::read(&file_path).await {
-                Ok(content) => {
-                    // 添加必要的响应头
-                    let filename_encoded = urlencoding::encode(&filename);
-                    let headers = [
-                        (axum::http::header::CONTENT_TYPE, "application/octet-stream"),
-                        (axum::http::header::CONTENT_DISPOSITION, &format!("attachment; filename=\"{}\"", filename_encoded)),
-                    ];
-                    
-                    // 返回文件内容
-                    (headers, content).into_response()
-                }
-                Err(e) => {
-                    tracing::error!("Failed to read file: {}", e);
-                    Html("<script>alert('读取文件失败'); window.location.href='/';</script>".to_string()).into_response()
+    match tokio::fs::metadata(&file_path).await {
+        Ok(metadata) => {
+            if metadata.is_dir() {
+                // 如果是目录，重定向到目录列表
+                Redirect::to(&format!("/files/{}/{}", username, filename)).into_response()
+            } else {
+                // 如果是文件，提供下载
+                match tokio::fs::read(&file_path).await {
+                    Ok(content) => {
+                        // 设置正确的Content-Type和Content-Disposition头
+                        let filename_encoded = urlencoding::encode(&filename);
+                        let headers = [
+                            (axum::http::header::CONTENT_TYPE, "application/octet-stream"),
+                            (axum::http::header::CONTENT_DISPOSITION, &format!("attachment; filename=\"{}\"", filename_encoded)),
+                        ];
+                        
+                        (headers, content).into_response()
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to read file: {}", e);
+                        Html("<script>alert('读取文件失败'); window.location.href='/';</script>".to_string()).into_response()
+                    }
                 }
             }
         }
-    } else {
-        Html("<script>alert('文件不存在'); window.location.href='/';</script>".to_string()).into_response()
+        Err(_) => {
+            Html("<script>alert('文件不存在'); window.location.href='/';</script>".to_string()).into_response()
+        }
     }
+}
+
+// 上传文件页面处理函数
+pub async fn upload_page(
+    Extension(user): Extension<User>,
+) -> impl IntoResponse {
+    let html = format!(
+        r#"<!DOCTYPE html>
+        <html>
+        <head>
+            <title>上传文件</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }}
+                h1 {{ color: #333; }}
+                .upload-form {{ background-color: #f9f9f9; padding: 20px; border-radius: 5px; }}
+                .form-group {{ margin-bottom: 15px; }}
+                label {{ display: block; margin-bottom: 5px; font-weight: bold; }}
+                input[type="file"] {{ width: 100%; padding: 10px; box-sizing: border-box; }}
+                button {{ background-color: #4CAF50; color: white; padding: 10px 15px; border: none; border-radius: 3px; cursor: pointer; }}
+                button:hover {{ background-color: #45a049; }}
+                .back {{ display: inline-block; margin-top: 20px; color: #2196F3; text-decoration: none; }}
+            </style>
+        </head>
+        <body>
+            <h1>上传文件</h1>
+            
+            <form class="upload-form" action="/upload" method="post" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="file">选择文件：</label>
+                    <input type="file" id="file" name="file" required>
+                </div>
+                <button type="submit">上传</button>
+            </form>
+            
+            <a href="/" class="back">返回主页</a>
+        </body>
+        </html>"#
+    );
+    
+    Html(html).into_response()
 }

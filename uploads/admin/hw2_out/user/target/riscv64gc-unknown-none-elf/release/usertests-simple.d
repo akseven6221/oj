@@ -1,0 +1,1 @@
+/home/alioth/rCore-Tutorial-v3/user/target/riscv64gc-unknown-none-elf/release/usertests-simple: /home/alioth/rCore-Tutorial-v3/user/src/bin/usertests-simple.rs /home/alioth/rCore-Tutorial-v3/user/src/console.rs /home/alioth/rCore-Tutorial-v3/user/src/lang_items.rs /home/alioth/rCore-Tutorial-v3/user/src/lib.rs /home/alioth/rCore-Tutorial-v3/user/src/syscall.rs

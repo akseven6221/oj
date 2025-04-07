@@ -1,17 +1,20 @@
 mod auth;
 mod database;
-mod handler; // 修改为引用模块而不是单一文件
+mod handler;
 mod models;
 mod templates;
+mod tester; // 新模块
 
 use auth::auth_middleware;
 use database::init_db;
 use handler::{
     admin_panel, create_user, delete_user, download_file, index_handler, login_handler, login_page,
-    logout_handler, update_user, upload_handler, view_uploads,
+    logout_handler, update_user, upload_handler, view_uploads, view_user_files,
+    view_results, view_result_detail, // 新的处理函数
 };
-use crate::handler::view_user_files;
 use models::AppState;
+use tester::TestQueue;
+use std::sync::Arc;
 
 use axum::{
     middleware,
@@ -90,23 +93,34 @@ async fn main() {
         }
     };
 
+    // 初始化测试队列
+    let test_queue = Arc::new(TestQueue::new(Arc::new(db_pool.clone())));
+    
+    // 启动测试工作器
+    let worker_queue = test_queue.clone();
+    tokio::spawn(async move {
+        worker_queue.start_worker().await;
+    });
+
     // 初始化应用状态
-    let state = AppState::new(db_pool);
+    let state = AppState::new(db_pool, test_queue);
 
     // 创建需要认证的路由
     let protected_routes = Router::new()
         .route("/", get(index_handler))
         .route("/upload", post(upload_handler))
         .route("/uploads", get(view_uploads))
-        // 添加文件相关路由
-        .route("/files/:username", get(view_user_files)) // 添加这行
+        .route("/files/:username", get(view_user_files))
         .route("/files/:username/:filename", get(download_file))
+        // 添加测试结果路由
+        .route("/test_results", get(view_results))
+        .route("/test_results/:id", get(view_result_detail))
         // 添加管理员路由
         .route("/admin/users", get(admin_panel))
         .route("/admin/users/create", post(create_user))
         .route("/admin/users/:username/update", post(update_user))
         .route("/admin/users/:username/delete", post(delete_user))
-        .route_layer(middleware::from_fn_with_state(
+        .layer(middleware::from_fn_with_state(
             state.clone(),
             auth_middleware
         ));

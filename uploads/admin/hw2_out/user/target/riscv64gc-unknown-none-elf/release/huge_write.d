@@ -1,0 +1,1 @@
+/home/alioth/rCore-Tutorial-v3/user/target/riscv64gc-unknown-none-elf/release/huge_write: /home/alioth/rCore-Tutorial-v3/user/src/bin/huge_write.rs /home/alioth/rCore-Tutorial-v3/user/src/console.rs /home/alioth/rCore-Tutorial-v3/user/src/lang_items.rs /home/alioth/rCore-Tutorial-v3/user/src/lib.rs /home/alioth/rCore-Tutorial-v3/user/src/syscall.rs
