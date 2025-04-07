@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = { version = "0.6", features = ["multipart"] }
+axum = { version = "0.6", features = ["macros", "multipart"] }
 tokio = { version = "1.0", features = ["full"] }
 tower-http = { version = "0.5", features = ["fs"] }
 tower-cookies = "0.8.0"  # 尝试使用较旧但稳定的版本
@@ -16,3 +16,5 @@ time = "0.3"
 sqlx = { version = "0.6", features = ["runtime-tokio-native-tls", "mysql", "chrono"] }
 chrono = { version = "0.4", features = ["serde"] }
 dotenv = "0.15"
+zip = "0.6.6"
+urlencoding = "2.1.3"

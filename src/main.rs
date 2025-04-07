@@ -72,6 +72,9 @@ async fn main() {
     // 确保模板目录存在
     templates::ensure_templates_exist().unwrap();
     
+    // 确保user目录存在
+    tokio::fs::create_dir_all("user").await.unwrap();
+    
     // 检查模板文件是否存在，如果不存在则创建默认模板
     check_and_create_template_files().await;
 
