@@ -100,12 +100,32 @@ impl TestQueue {
         }
 
         // 使用超时设置运行make命令
+        let mut child = Command::new("make")
+            .arg("run")
+            .env("RUSTUP_TOOLCHAIN", "nightly-2024-04-29")
+            .current_dir(&os_dir)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .map_err(|e| {
+                return (
+                    TestStatus::Error,
+                    String::new(),
+                    Some(format!("进程启动失败: {}", e))
+                );
+            })?;
+
+        // 发送测试指令到标准输入
+        if let Some(mut stdin) = child.stdin.take() {
+            tokio::spawn(async move {
+                stdin.write_all(b"usertests\n").await
+                    .map_err(|e| format!("输入指令失败: {}", e))
+            });
+        }
+
         let result = tokio::time::timeout(
-            Duration::from_secs(180), // 3分钟超时
-            Command::new("make")
-                .arg("run")
-                .current_dir(&os_dir)
-                .output()
+            Duration::from_secs(300), // 延长到5分钟超时
+            child.wait_with_output()
         ).await;
 
         match result {
