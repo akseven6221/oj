@@ -1,16 +1,16 @@
 mod auth;
 mod database;
-mod handlers;
+mod handler; // 修改为引用模块而不是单一文件
 mod models;
 mod templates;
 
 use auth::auth_middleware;
 use database::init_db;
-use dotenv::dotenv;
-use handlers::{
+use handler::{
     admin_panel, create_user, delete_user, download_file, index_handler, login_handler, login_page,
-    logout_handler, update_user, upload_handler, view_uploads, view_user_files,
+    logout_handler, update_user, upload_handler, view_uploads,
 };
+use crate::handler::view_user_files;
 use models::AppState;
 
 use axum::{
@@ -53,7 +53,7 @@ async fn check_test_cookie(cookies: Cookies) -> impl IntoResponse {
 #[tokio::main]
 async fn main() {
     // 加载环境变量
-    dotenv().ok();
+    dotenv::dotenv().ok();
     
     // 设置调试级别日志
     std::env::set_var("RUST_LOG", "debug");
@@ -98,8 +98,8 @@ async fn main() {
         .route("/", get(index_handler))
         .route("/upload", post(upload_handler))
         .route("/uploads", get(view_uploads))
-        // 添加新的文件相关路由
-        .route("/files/:username", get(view_user_files))
+        // 添加文件相关路由
+        .route("/files/:username", get(view_user_files)) // 添加这行
         .route("/files/:username/:filename", get(download_file))
         // 添加管理员路由
         .route("/admin/users", get(admin_panel))
