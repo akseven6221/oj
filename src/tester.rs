@@ -106,7 +106,7 @@ impl TestQueue {
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .spawn()
-            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+            .map_err(|e| format!("进程启动失败: {}", e))?;
 
         // 发送测试指令到标准输入
         if let Some(mut stdin) = child.stdin.take() {
@@ -117,45 +117,113 @@ impl TestQueue {
             });
         }
 
-        // 获取stdout以便后续读取
-        let stdout = child.stdout.take();
+        // 获取stdout并设置缓冲读取
+        let mut stdout = tokio::io::BufReader::new(child.stdout.take().unwrap());
+        let mut output = String::new();
+        let mut buffer = [0; 1024];
+        let mut passed = false;
 
-        let result = tokio::time::timeout(
-            Duration::from_secs(300), // 延长到5分钟超时
-            child.wait_with_output()
-        ).await;
+        // 设置超时时间
+        let timeout = tokio::time::sleep(Duration::from_secs(300));
+        tokio::pin!(timeout);
 
-        // 等待1秒确保输出完成
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        loop {
+            tokio::select! {
+                read_result = stdout.read(&mut buffer) => {
+                    match read_result {
+                        Ok(n) if n > 0 => {
+                            let chunk = String::from_utf8_lossy(&buffer[..n]).to_string();
+                            output.push_str(&chunk);
+                            
+                            // 实时更新输出到数据库
+                            if let Err(e) = TestRepo::update_test_result(
+                                &self.db_pool,
+                                task.id,
+                                if output.contains("Usertests passed!") {
+                                    passed = true;
+                                    TestStatus::Passed
+                                } else {
+                                    TestStatus::Running
+                                },
+                                Some(output.clone()),
+                                None,
+                            ).await {
+                                tracing::error!("Failed to update test output: {}", e);
+                            }
 
-        match result {
-            Ok(Ok(output)) => {
-                // 读取之前保存的stdout中的剩余输出
-                let mut remaining = String::new();
-                if let Some(mut stdout) = stdout {
-                    let mut reader = tokio::io::BufReader::new(stdout);
-                    reader.read_to_string(&mut remaining).await?;
+                            // 如果测试通过或失败，立即终止qemu进程
+                            if passed || output.contains("FAILED") {
+                                // 获取所有qemu进程的PID并终止它们
+                                if let Ok(pgrep_output) = Command::new("pgrep")
+                                    .arg("-a")
+                                    .arg("qemu")
+                                    .output()
+                                    .await {
+                                    if let Ok(pids_str) = String::from_utf8(pgrep_output.stdout) {
+                                        for line in pids_str.lines() {
+                                            if let Some(pid) = line.split_whitespace().next() {
+                                                if let Err(e) = Command::new("kill")
+                                                    .arg("-9")
+                                                    .arg(pid)
+                                                    .output()
+                                                    .await {
+                                                    tracing::warn!("Failed to kill qemu process {}: {}", pid, e);
+                                                } else {
+                                                    tracing::info!("Successfully terminated qemu process {}", pid);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                break;
+                            }
+                        },
+                        Ok(_) => break, // EOF
+                        Err(e) => return Err(format!("读取输出失败: {}", e).into()),
+                    }
                 }
-
-                let mut final_output = output.stdout;
-                final_output.extend_from_slice(remaining.as_bytes());
-                
-                let stdout_str = String::from_utf8_lossy(&final_output).to_string();
-                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-                
-                // 检查输出中是否包含成功标记
-                if stdout_str.contains("Usertests passed!") {
-                    Ok((TestStatus::Passed, stdout_str, None))
-                } else {
-                    Ok((
-                        TestStatus::Failed,
-                        stdout_str,
-                        if stderr.is_empty() { None } else { Some(stderr) },
-                    ))
+                _ = &mut timeout => {
+                    return Err("测试执行超时".into());
                 }
-            },
-            Ok(Err(e)) => return Err(format!("执行make命令失败: {}", e).into()),
-            Err(_) => return Err("测试执行超时".into()),
+            }
+        }
+
+        // 获取所有qemu进程的PID并终止它们
+        let pgrep_output = match Command::new("pgrep")
+            .arg("-a")
+            .arg("qemu")
+            .output()
+            .await {
+            Ok(output) => output,
+            Err(e) => {
+                tracing::warn!("Failed to get qemu processes: {}", e);
+                return Ok((TestStatus::Failed, output, Some(format!("Failed to get qemu processes: {}", e))));
+            }
+        };
+
+        // 解析pgrep输出获取PID列表
+        if let Ok(pids_str) = String::from_utf8(pgrep_output.stdout) {
+            for line in pids_str.lines() {
+                if let Some(pid) = line.split_whitespace().next() {
+                    // 对每个PID执行kill命令
+                    if let Err(e) = Command::new("kill")
+                        .arg("-9")
+                        .arg(pid)
+                        .output()
+                        .await {
+                        tracing::warn!("Failed to kill qemu process {}: {}", pid, e);
+                    } else {
+                        tracing::info!("Successfully terminated qemu process {}", pid);
+                    }
+                }
+            }
+        }
+
+        // 根据测试输出结果判断状态
+        if passed {
+            Ok((TestStatus::Passed, output, None))
+        } else {
+            Ok((TestStatus::Failed, output, None))
         }
     }
 }

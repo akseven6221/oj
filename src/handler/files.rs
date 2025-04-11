@@ -243,7 +243,7 @@ pub async fn download_file(
 
 // 上传文件页面处理函数
 pub async fn upload_page(
-    Extension(user): Extension<User>,
+    Extension(_user): Extension<User>,
 ) -> impl IntoResponse {
     let html = format!(
         r#"<!DOCTYPE html>
