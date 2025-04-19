@@ -1,6 +1,6 @@
 use crate::database::UserRepo;
 use crate::models::{AppState, User, UserRole, UserCreateForm, UserUpdateForm};
-use crate::templates::admin_panel_template;
+use crate::templates::{admin_panel_template, alert_redirect_template}; // Import alert_redirect_template
 use axum::{
     extract::{Extension, Form, Path, State},
     response::{Html, IntoResponse},
@@ -13,18 +13,17 @@ pub async fn admin_panel(
 ) -> impl IntoResponse {
     // 检查是否是管理员
     if !matches!(user.role, UserRole::Admin) {
-        return Html(
-            "<script>alert('只有管理员才能访问此页面'); window.location.href='/';</script>".to_string(),
-        )
-        .into_response();
+        // 使用模板
+        return Html(alert_redirect_template("只有管理员才能访问此页面", "/")).into_response();
     }
-    
+
     // 从数据库获取所有用户
     match UserRepo::get_all_users(&state.db_pool).await {
         Ok(users) => Html(admin_panel_template(&users, None, None)).into_response(),
         Err(e) => {
             tracing::error!("Failed to get users: {}", e);
-            Html("<script>alert('获取用户列表失败！'); window.location.href='/';</script>".to_string()).into_response()
+            // 使用模板
+            Html(alert_redirect_template("获取用户列表失败！", "/")).into_response()
         }
     }
 }
@@ -37,10 +36,8 @@ pub async fn create_user(
 ) -> impl IntoResponse {
     // 检查是否是管理员
     if !matches!(user.role, UserRole::Admin) {
-        return Html(
-            "<script>alert('只有管理员才能创建用户'); window.location.href='/';</script>".to_string(),
-        )
-        .into_response();
+        // 使用模板
+        return Html(alert_redirect_template("只有管理员才能创建用户", "/")).into_response();
     }
     
     // 转换角色
@@ -56,7 +53,8 @@ pub async fn create_user(
                 Ok(users) => Html(admin_panel_template(&users, None, Some("用户创建成功！"))).into_response(),
                 Err(e) => {
                     tracing::error!("Failed to get users: {}", e);
-                    Html("<script>alert('用户创建成功，但获取用户列表失败！'); window.location.href='/admin/users';</script>".to_string()).into_response()
+                    // 使用模板
+                    Html(alert_redirect_template("用户创建成功，但获取用户列表失败！", "/admin/users")).into_response()
                 }
             }
         }
@@ -72,10 +70,8 @@ pub async fn create_user(
             match UserRepo::get_all_users(&state.db_pool).await {
                 Ok(users) => Html(admin_panel_template(&users, Some(&error_message), None)).into_response(),
                 Err(_) => {
-                    Html(format!(
-                        "<script>alert('{}'); window.location.href='/admin/users';</script>",
-                        error_message
-                    )).into_response()
+                    // 使用模板
+                    Html(alert_redirect_template(&error_message, "/admin/users")).into_response()
                 }
             }
         }
@@ -91,10 +87,8 @@ pub async fn update_user(
 ) -> impl IntoResponse {
     // 检查是否是管理员
     if !matches!(user.role, UserRole::Admin) {
-        return Html(
-            "<script>alert('只有管理员才能更新用户'); window.location.href='/';</script>".to_string(),
-        )
-        .into_response();
+        // 使用模板
+        return Html(alert_redirect_template("只有管理员才能更新用户", "/")).into_response();
     }
     
     // 转换角色
@@ -115,7 +109,8 @@ pub async fn update_user(
                 Ok(users) => Html(admin_panel_template(&users, None, Some(&format!("用户 {} 更新成功！", username)))).into_response(),
                 Err(e) => {
                     tracing::error!("Failed to get users: {}", e);
-                    Html("<script>alert('用户更新成功，但获取用户列表失败！'); window.location.href='/admin/users';</script>".to_string()).into_response()
+                    // 使用模板
+                    Html(alert_redirect_template("用户更新成功，但获取用户列表失败！", "/admin/users")).into_response()
                 }
             }
         }
@@ -124,7 +119,8 @@ pub async fn update_user(
                 Ok(users) => Html(admin_panel_template(&users, Some(&format!("用户 {} 不存在", username)), None)).into_response(),
                 Err(e) => {
                     tracing::error!("Failed to get users: {}", e);
-                    Html("<script>alert('用户不存在！'); window.location.href='/admin/users';</script>".to_string()).into_response()
+                    // 使用模板
+                    Html(alert_redirect_template("用户不存在！", "/admin/users")).into_response()
                 }
             }
         }
@@ -134,10 +130,8 @@ pub async fn update_user(
             match UserRepo::get_all_users(&state.db_pool).await {
                 Ok(users) => Html(admin_panel_template(&users, Some(&format!("更新用户失败: {}", e)), None)).into_response(),
                 Err(_) => {
-                    Html(format!(
-                        "<script>alert('更新用户失败: {}'); window.location.href='/admin/users';</script>",
-                        e
-                    )).into_response()
+                    // 使用模板
+                    Html(alert_redirect_template(&format!("更新用户失败: {}", e), "/admin/users")).into_response()
                 }
             }
         }
@@ -152,9 +146,8 @@ pub async fn delete_user(
 ) -> impl IntoResponse {
     // 检查是否是管理员
     if !matches!(user.role, UserRole::Admin) {
-        return Html(
-            "<script>alert('只有管理员才能删除用户'); window.location.href='/';</script>".to_string(),
-        ).into_response();
+        // 使用模板
+        return Html(alert_redirect_template("只有管理员才能删除用户", "/")).into_response();
     }
     
     // 不能删除自己
@@ -162,7 +155,8 @@ pub async fn delete_user(
         match UserRepo::get_all_users(&state.db_pool).await {
             Ok(users) => return Html(admin_panel_template(&users, Some("不能删除当前登录的用户"), None)).into_response(),
             Err(_) => {
-                return Html("<script>alert('不能删除当前登录的用户'); window.location.href='/admin/users';</script>".to_string()).into_response()
+                // 使用模板
+                return Html(alert_redirect_template("不能删除当前登录的用户", "/admin/users")).into_response()
             }
         }
     }
@@ -172,7 +166,8 @@ pub async fn delete_user(
         match UserRepo::get_all_users(&state.db_pool).await {
             Ok(users) => return Html(admin_panel_template(&users, Some("不能删除主管理员"), None)).into_response(),
             Err(_) => {
-                return Html("<script>alert('不能删除主管理员'); window.location.href='/admin/users';</script>".to_string()).into_response()
+                // 使用模板
+                return Html(alert_redirect_template("不能删除主管理员", "/admin/users")).into_response()
             }
         }
     }
@@ -184,7 +179,8 @@ pub async fn delete_user(
                 Ok(users) => Html(admin_panel_template(&users, None, Some(&format!("用户 {} 删除成功！", username)))).into_response(),
                 Err(e) => {
                     tracing::error!("Failed to get users: {}", e);
-                    Html("<script>alert('用户删除成功，但获取用户列表失败！'); window.location.href='/admin/users';</script>".to_string()).into_response()
+                    // 使用模板
+                    Html(alert_redirect_template("用户删除成功，但获取用户列表失败！", "/admin/users")).into_response()
                 }
             }
         }
@@ -193,7 +189,8 @@ pub async fn delete_user(
                 Ok(users) => Html(admin_panel_template(&users, Some(&format!("用户 {} 不存在", username)), None)).into_response(),
                 Err(e) => {
                     tracing::error!("Failed to get users: {}", e);
-                    Html("<script>alert('用户不存在！'); window.location.href='/admin/users';</script>".to_string()).into_response()
+                    // 使用模板
+                    Html(alert_redirect_template("用户不存在！", "/admin/users")).into_response()
                 }
             }
         }
@@ -203,10 +200,8 @@ pub async fn delete_user(
             match UserRepo::get_all_users(&state.db_pool).await {
                 Ok(users) => Html(admin_panel_template(&users, Some(&format!("删除用户失败: {}", e)), None)).into_response(),
                 Err(_) => {
-                    Html(format!(
-                        "<script>alert('删除用户失败: {}'); window.location.href='/admin/users';</script>",
-                        e
-                    )).into_response()
+                    // 使用模板
+                    Html(alert_redirect_template(&format!("删除用户失败: {}", e), "/admin/users")).into_response()
                 }
             }
         }

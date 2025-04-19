@@ -1,53 +1,24 @@
-
 <!DOCTYPE html>
 <html>
 <head>
     <title>登录</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            max-width: 500px; 
-            margin: 0 auto; 
-            padding: 20px; 
-        }
-        form { 
-            display: flex; 
-            flex-direction: column; 
-            background: #f9f9f9;
-            padding: 20px;
-            border-radius: 5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        input { 
-            margin-bottom: 15px; 
-            padding: 10px; 
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        button { 
-            padding: 12px; 
-            background: #4CAF50; 
-            color: white; 
-            border: none; 
-            cursor: pointer;
-            border-radius: 4px;
-            font-size: 16px;
-        }
-        button:hover {
-            background: #45a049;
-        }
-        h1 {
-            color: #333;
-            text-align: center;
-        }
-    </style>
+    <link rel="stylesheet" href="/static/style.css"> <!-- 替换 style 块 -->
 </head>
 <body>
-    <h1>登录</h1>
-    <form action="/login" method="post">
-        <input type="text" name="username" placeholder="用户名" required>
-        <input type="password" name="password" placeholder="密码" required>
-        <button type="submit">登录</button>
-    </form>
+    <div class="container login-container"> <!-- 添加 container 和 login-container 类 -->
+        <h1>登录</h1>
+        {{error_message}} <!-- 添加错误消息占位符 -->
+        <form action="/login" method="post">
+            <div> <!-- 包裹在 div 中 -->
+                <label for="username">用户名:</label>
+                <input type="text" id="username" name="username" placeholder="用户名" required>
+            </div>
+            <div> <!-- 包裹在 div 中 -->
+                <label for="password">密码:</label>
+                <input type="password" id="password" name="password" placeholder="密码" required>
+            </div>
+            <button type="submit">登录</button>
+        </form>
+    </div>
 </body>
 </html>

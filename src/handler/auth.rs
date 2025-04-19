@@ -1,6 +1,6 @@
 use crate::database::{SessionRepo, UserRepo};
 use crate::models::{AppState, LoginForm};
-use crate::templates::login_template;
+use crate::templates::{login_template, alert_redirect_template}; // Import alert_redirect_template
 use axum::{
     extract::{Form, State},
     response::{Html, IntoResponse, Redirect},
@@ -33,7 +33,8 @@ pub async fn login_handler(
                 // 在数据库中记录会话
                 if let Err(e) = SessionRepo::create_session(&state.db_pool, &session_id, user.id).await {
                     tracing::error!("Failed to create session: {}", e);
-                    return Html("<script>alert('登录失败，请重试'); window.location.href='/login';</script>".to_string()).into_response();
+                    // 使用模板
+                    return Html(alert_redirect_template("登录失败，请重试", "/login")).into_response();
                 }
                 
                 // 设置cookie
@@ -44,19 +45,23 @@ pub async fn login_handler(
                 
                 tracing::info!("User {} logged in successfully", user.username);
                 
-                Html(r#"<script>alert('登录成功!'); window.location.href='/';</script>"#.to_string()).into_response()
+                // 使用模板
+                Html(alert_redirect_template("登录成功!", "/")).into_response()
             } else {
                 tracing::warn!("Invalid password for user: {}", form.username);
-                Html("<script>alert('用户名或密码错误'); window.location.href='/login';</script>".to_string()).into_response()
+                // 使用模板
+                Html(alert_redirect_template("用户名或密码错误", "/login")).into_response()
             }
         }
         Ok(None) => {
             tracing::warn!("User not found: {}", form.username);
-            Html("<script>alert('用户名或密码错误'); window.location.href='/login';</script>".to_string()).into_response()
+            // 使用模板
+            Html(alert_redirect_template("用户名或密码错误", "/login")).into_response()
         }
         Err(e) => {
             tracing::error!("Database error: {}", e);
-            Html("<script>alert('登录失败，请重试'); window.location.href='/login';</script>".to_string()).into_response()
+            // 使用模板
+            Html(alert_redirect_template("登录失败，请重试", "/login")).into_response()
         }
     }
 }

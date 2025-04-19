@@ -1,5 +1,7 @@
 use crate::database::UserRepo;
 use crate::models::{AppState, User, UserRole};
+// Import new template functions and alert_redirect_template
+use crate::templates::{alert_redirect_template, files_list_template, build_files_list_content_html, upload_page_template};
 use axum::{
     extract::{Extension, Path, State},
     response::{Html, IntoResponse, Redirect},
@@ -33,16 +35,16 @@ pub async fn view_user_files(
 ) -> impl IntoResponse {
     // 检查权限：只能查看自己的或者管理员可以查看所有人的 - 注意！修复条件语法
     if user.username != target_username && !matches!(user.role, UserRole::Admin) {
-        return Html("<script>alert('您没有权限查看此用户的文件'); window.location.href='/';</script>".to_string()).into_response();
+        return Html(alert_redirect_template("您没有权限查看此用户的文件", "/")).into_response();
     }
     
     // 获取目标用户信息，加上下划线前缀避免未使用警告
     let _target_user = match UserRepo::get_user_by_username(&state.db_pool, &target_username).await {
         Ok(Some(u)) => u,
-        Ok(None) => return Html("<script>alert('用户不存在'); window.location.href='/';</script>".to_string()).into_response(),
+        Ok(None) => return Html(alert_redirect_template("用户不存在", "/")).into_response(),
         Err(e) => {
             tracing::error!("Database error: {}", e);
-            return Html("<script>alert('数据库错误'); window.location.href='/';</script>".to_string()).into_response();
+            return Html(alert_redirect_template("数据库错误", "/")).into_response();
         }
     };
     
@@ -55,7 +57,7 @@ pub async fn view_user_files(
         Ok(_) => (),
         Err(e) => {
             tracing::error!("Failed to ensure user directory exists: {}", e);
-            return Html("<script>alert('无法访问用户目录'); window.location.href='/';</script>".to_string()).into_response();
+            return Html(alert_redirect_template("无法访问用户目录", "/")).into_response();
         }
     }
     
@@ -83,106 +85,18 @@ pub async fn view_user_files(
         }
         Err(e) => {
             tracing::error!("Failed to read user directory: {}", e);
-            return Html("<script>alert('读取用户目录失败'); window.location.href='/';</script>".to_string()).into_response();
+            return Html(alert_redirect_template("读取用户目录失败", "/")).into_response();
         }
     }
     
-    // 构建文件列表 HTML
-    let mut files_html = String::new();
-    if entries.is_empty() {
-        files_html = r#"<div class="empty">此用户没有上传任何文件</div>"#.to_string();
-    } else {
-        // 按文件名排序
-        entries.sort_by(|a, b| a.0.cmp(&b.0));
-        
-        files_html.push_str(r#"<table class="file-table">
-            <thead>
-                <tr>
-                    <th>名称</th>
-                    <th>类型</th>
-                    <th>大小</th>
-                    <th>修改时间</th>
-                    <th>操作</th>
-                </tr>
-            </thead>
-            <tbody>"#);
-        
-        for (filename, size, modified, is_dir) in entries {
-            let size_str = if size < 1024 {
-                format!("{} B", size)
-            } else if size < 1024 * 1024 {
-                format!("{:.2} KB", size as f64 / 1024.0)
-            } else {
-                format!("{:.2} MB", size as f64 / (1024.0 * 1024.0))
-            };
-            
-            // 修复 chrono 废弃方法警告
-            let time_str = match modified {
-                Some(timestamp) => {
-                    let dt = chrono::DateTime::from_timestamp(timestamp as i64, 0)
-                        .unwrap_or_else(|| chrono::Utc::now());
-                    dt.format("%Y-%m-%d %H:%M:%S").to_string()
-                }
-                None => "未知".to_owned(),
-            };
-            
-            let type_str = if is_dir { "目录" } else { "文件" };
-            
-            let download_url = format!("/files/{}/{}", target_username, filename);
-            
-            let action_cell = if is_dir {
-                format!(r#"<a href="{}" class="view-btn">查看目录</a>"#, download_url)
-            } else {
-                format!(r#"<a href="{}" class="download-btn">下载</a>"#, download_url)
-            };
-            
-            files_html.push_str(&format!(
-                r#"<tr>
-                    <td>{}</td>
-                    <td>{}</td>
-                    <td>{}</td>
-                    <td>{}</td>
-                    <td>{}</td>
-                </tr>"#,
-                filename, type_str, size_str, time_str, action_cell
-            ));
-        }
-        
-        files_html.push_str("</tbody></table>");
-    }
-    
-    // 返回文件列表页面
-    let html = format!(
-        r#"<!DOCTYPE html>
-        <html>
-        <head>
-            <title>文件列表 - {}</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; }}
-                h1 {{ color: #333; }}
-                .file-table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
-                .file-table th, .file-table td {{ text-align: left; padding: 12px; border-bottom: 1px solid #ddd; }}
-                .file-table th {{ background-color: #4CAF50; color: white; }}
-                .file-table tr:hover {{ background-color: #f5f5f5; }}
-                .empty {{ padding: 20px; text-align: center; color: #757575; }}
-                .back {{ display: inline-block; margin-top: 20px; color: #2196F3; text-decoration: none; }}
-                .view-btn, .download-btn {{ display: inline-block; padding: 5px 10px; color: white; text-decoration: none; border-radius: 3px; }}
-                .view-btn {{ background-color: #2196F3; }}
-                .download-btn {{ background-color: #4CAF50; }}
-            </style>
-        </head>
-        <body>
-            <h1>{} 的文件列表</h1>
-            
-            {}
-            
-            <a href="/" class="back">返回主页</a>
-        </body>
-        </html>"#,
-        target_username, target_username, files_html
-    );
-    
-    Html(html).into_response()
+    // 按文件名排序
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
+
+    // 构建文件列表内容的 HTML - 使用模板函数
+    let files_content_html = build_files_list_content_html(&entries, &target_username);
+
+    // 返回文件列表页面 - 使用模板函数
+    Html(files_list_template(&target_username, &files_content_html)).into_response()
 }
 
 // 下载文件处理函数
@@ -193,16 +107,16 @@ pub async fn download_file(
 ) -> impl IntoResponse {
     // 检查权限：只能下载自己的或者管理员可以下载所有人的
     if user.username != username && !matches!(user.role, UserRole::Admin) {
-        return Html("<script>alert('您没有权限下载此文件'); window.location.href='/';</script>".to_string()).into_response();
+        return Html(alert_redirect_template("您没有权限下载此文件", "/")).into_response();
     }
     
     // 获取目标用户信息
     let _target_user = match UserRepo::get_user_by_username(&state.db_pool, &username).await {
         Ok(Some(u)) => u,
-        Ok(None) => return Html("<script>alert('用户不存在'); window.location.href='/';</script>".to_string()).into_response(),
+        Ok(None) => return Html(alert_redirect_template("用户不存在", "/")).into_response(),
         Err(e) => {
             tracing::error!("Database error: {}", e);
-            return Html("<script>alert('数据库错误'); window.location.href='/';</script>".to_string()).into_response();
+            return Html(alert_redirect_template("数据库错误", "/")).into_response();
         }
     };
     
@@ -230,13 +144,13 @@ pub async fn download_file(
                     }
                     Err(e) => {
                         tracing::error!("Failed to read file: {}", e);
-                        Html("<script>alert('读取文件失败'); window.location.href='/';</script>".to_string()).into_response()
+                        Html(alert_redirect_template("读取文件失败", "/")).into_response()
                     }
                 }
             }
         }
         Err(_) => {
-            Html("<script>alert('文件不存在'); window.location.href='/';</script>".to_string()).into_response()
+            Html(alert_redirect_template("文件不存在", "/")).into_response()
         }
     }
 }
@@ -245,38 +159,6 @@ pub async fn download_file(
 pub async fn upload_page(
     Extension(_user): Extension<User>,
 ) -> impl IntoResponse {
-    let html = format!(
-        r#"<!DOCTYPE html>
-        <html>
-        <head>
-            <title>上传文件</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }}
-                h1 {{ color: #333; }}
-                .upload-form {{ background-color: #f9f9f9; padding: 20px; border-radius: 5px; }}
-                .form-group {{ margin-bottom: 15px; }}
-                label {{ display: block; margin-bottom: 5px; font-weight: bold; }}
-                input[type="file"] {{ width: 100%; padding: 10px; box-sizing: border-box; }}
-                button {{ background-color: #4CAF50; color: white; padding: 10px 15px; border: none; border-radius: 3px; cursor: pointer; }}
-                button:hover {{ background-color: #45a049; }}
-                .back {{ display: inline-block; margin-top: 20px; color: #2196F3; text-decoration: none; }}
-            </style>
-        </head>
-        <body>
-            <h1>上传文件</h1>
-            
-            <form class="upload-form" action="/upload" method="post" enctype="multipart/form-data">
-                <div class="form-group">
-                    <label for="file">选择文件：</label>
-                    <input type="file" id="file" name="file" required>
-                </div>
-                <button type="submit">上传</button>
-            </form>
-            
-            <a href="/" class="back">返回主页</a>
-        </body>
-        </html>"#
-    );
-    
-    Html(html).into_response()
+    // 使用模板函数
+    Html(upload_page_template()).into_response()
 }

@@ -1,0 +1,21 @@
+<tr>
+    <td>{{username}}</td>
+    <td>{{role_text}}</td>
+    <td>
+        <form action="/admin/users/{{username}}/update" method="post" class="inline-form">
+            <select name="role">
+                <option value="admin" {{is_admin_selected}}>管理员</option>
+                <option value="regular" {{is_regular_selected}}>普通用户</option>
+            </select>
+            <input type="password" name="password" placeholder="新密码（留空不修改）">
+            <button type="submit" class="small-button">更新</button>
+        </form>
+        <a href="/files/{{username}}" class="small-button file-btn">查看文件</a>
+    </td>
+    <td>
+        <form action="/admin/users/{{username}}/delete" method="post" class="inline-form"
+              onsubmit="return confirm('确定要删除用户 {{username}} 吗？');">
+            <button type="submit" class="small-button danger">删除</button>
+        </form>
+    </td>
+</tr>

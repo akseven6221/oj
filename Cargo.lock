@@ -166,6 +166,7 @@ dependencies = [
  "chrono",
  "dotenv",
  "html-escape",
+ "mime_guess",
  "serde",
  "sqlx",
  "time",

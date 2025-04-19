@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>文件列表 - {{target_username}}</title>
+    <link rel="stylesheet" href="/static/style.css"> <!-- 替换 style 块 -->
+</head>
+<body>
+    <div class="container"> <!-- 添加 container 类 -->
+        <h1>{{target_username}} 的文件列表</h1>
+
+        {{files_content}}
+
+        <a href="/" class="btn">返回主页</a> <!-- 使用 btn 类 -->
+    </div>
+</body>
+</html>

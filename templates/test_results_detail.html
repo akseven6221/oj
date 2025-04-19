@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>测试结果详情 #{{id}}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>测试结果详情 #{{id}}</h1>
+
+        <div class="test-result-detail">
+            <h2>基本信息</h2>
+            <p><strong>用户:</strong> {{username}}</p>
+            <p><strong>状态:</strong> <span class="status-{{status_class}}">{{status}}</span></p>
+            <p><strong>提交时间:</strong> {{created_at}}</p>
+            <p><strong>更新时间:</strong> {{updated_at}}</p>
+
+            <h2>输出</h2>
+            <div class="output">{{output}}</div>
+
+            {{error_section}}
+        </div>
+
+        <a href="/test_results" class="btn">返回测试结果列表</a>
+    </div>
+</body>
+</html>

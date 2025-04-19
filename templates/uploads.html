@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>上传记录</title>
+    <link rel="stylesheet" href="/static/style.css"> <!-- 替换 style 块 -->
+</head>
+<body>
+    <div class="container"> <!-- 添加 container 类 -->
+        <div class="user-info">
+            <p>欢迎，{{username}} ({{role}}) - <a href="/logout" class="logout-link">退出登录</a></p>
+        </div>
+
+        <h1>上传记录</h1>
+        {{error_message}}
+
+        {{uploads_table}}
+
+        <a href="/" class="btn">返回主页</a> <!-- 使用 btn 类 -->
+    </div>
+</body>
+</html>

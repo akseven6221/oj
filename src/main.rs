@@ -8,21 +8,23 @@ mod tester; // 新模块
 use auth::auth_middleware;
 use database::init_db;
 use handler::{
-    admin_panel, create_user, delete_user, download_file, index_handler, login_handler, login_page,
-    logout_handler, update_user, upload_handler, view_uploads, view_user_files,
-    view_results, view_result_detail, // 新的处理函数
+    login_handler, login_page, logout_handler, // Keep only used handlers
+    // Remove: admin_panel, create_user, delete_user, download_file, index_handler,
+    // Remove: update_user, upload_handler, view_uploads, view_user_files,
+    // Remove: view_results, view_result_detail,
 };
 use models::AppState;
 use tester::TestQueue;
 use std::sync::Arc;
+use tower_http::services::ServeDir; // 新增：导入 ServeDir
 
 use axum::{
     middleware,
-    routing::{get, post},
+    routing::{get, post}, // Remove get_service import
     Router,
     response::{Html, IntoResponse, Json},
+    ServiceExt,
 };
-
 use tower_cookies::{Cookie, CookieManagerLayer, Cookies};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -107,19 +109,7 @@ async fn main() {
 
     // 创建需要认证的路由
     let protected_routes = Router::new()
-        .route("/", get(index_handler))
-        .route("/upload", post(upload_handler))
-        .route("/uploads", get(view_uploads))
-        .route("/files/:username", get(view_user_files))
-        .route("/files/:username/:filename", get(download_file))
-        // 添加测试结果路由
-        .route("/test_results", get(view_results))
-        .route("/test_results/:id", get(view_result_detail))
-        // 添加管理员路由
-        .route("/admin/users", get(admin_panel))
-        .route("/admin/users/create", post(create_user))
-        .route("/admin/users/:username/update", post(update_user))
-        .route("/admin/users/:username/delete", post(delete_user))
+        .route("/", get(handler::index_handler)) // 添加首页路由
         .layer(middleware::from_fn_with_state(
             state.clone(),
             auth_middleware
@@ -127,15 +117,36 @@ async fn main() {
 
     // 创建不需要认证的路由
     let public_routes = Router::new()
-        .route("/login", get(login_page).post(login_handler))
-        .route("/logout", get(logout_handler))  // 这是退出登录的路由
+        .route("/login", get(login_page).post(login_handler)) // Ensure post is imported if used
+        .route("/logout", get(logout_handler))
         .route("/test-cookies", get(test_cookies))
         .route("/set-cookie", get(set_test_cookie))
         .route("/check-cookie", get(check_test_cookie));
-        
-    // 合并路由并添加全局中间件
-    let app = protected_routes
+
+    // 创建静态文件服务路由
+    let static_router = Router::new()
+        .route("/static/*path", get(|path: axum::extract::Path<String>| {
+            let path = path.0;
+            let file_path = format!("static/{}", path);
+            async move {
+                match tokio::fs::read(&file_path).await {
+                    Ok(content) => axum::response::Response::builder()
+                        .header("content-type", mime_guess::from_path(&file_path).first_or_octet_stream().as_ref())
+                        .body(axum::body::boxed(axum::body::Full::from(content)))
+                        .unwrap(),
+                    Err(_) => axum::response::Response::builder()
+                        .status(404)
+                        .body(axum::body::boxed(axum::body::Full::from("File not found")))
+                        .unwrap(),
+                }
+            }
+        }));
+
+    // 合并所有路由并添加全局中间件
+    let app = Router::new()
         .merge(public_routes)
+        .merge(protected_routes)
+        .merge(static_router) // Merge the static router
         .layer(CookieManagerLayer::new())
         .with_state(state);
 
