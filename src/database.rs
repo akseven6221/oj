@@ -25,69 +25,24 @@ pub async fn init_db() -> Result<DbPool, DbError> {
 // 初始化数据库表
 async fn init_tables(pool: &DbPool) -> Result<(), DbError> {
     // 创建用户表
-    sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS users (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            username VARCHAR(50) NOT NULL UNIQUE,
-            password VARCHAR(255) NOT NULL,
-            role VARCHAR(20) NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )
-        "#,
-    )
-    .execute(pool)
-    .await?;
+    sqlx::query(include_str!("../sql/users/create_table.sql"))
+        .execute(pool)
+        .await?;
     
     // 创建会话表
-    sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS sessions (
-            id VARCHAR(36) PRIMARY KEY,
-            user_id INT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        )
-        "#,
-    )
-    .execute(pool)
-    .await?;
+    sqlx::query(include_str!("../sql/sessions/create_table.sql"))
+        .execute(pool)
+        .await?;
     
     // 创建上传记录表
-    sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS uploads (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL,
-            filename VARCHAR(255) NOT NULL,
-            file_path VARCHAR(255) NOT NULL,
-            file_size BIGINT NOT NULL,
-            uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        )
-        "#,
-    )
-    .execute(pool)
-    .await?;
+    sqlx::query(include_str!("../sql/uploads/create_table.sql"))
+        .execute(pool)
+        .await?;
     
     // 创建测试结果表
-    sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS test_results (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL,
-            status VARCHAR(20) NOT NULL,
-            output TEXT,
-            error TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        )
-        "#,
-    )
-    .execute(pool)
-    .await?;
+    sqlx::query(include_str!("../sql/test_results/create_table.sql"))
+        .execute(pool)
+        .await?;
     
     Ok(())
 }
@@ -95,39 +50,31 @@ async fn init_tables(pool: &DbPool) -> Result<(), DbError> {
 // 初始化默认用户
 async fn init_default_users(pool: &DbPool) -> Result<(), DbError> {
     // 检查管理员是否存在
-    let admin_exists = sqlx::query("SELECT 1 FROM users WHERE username = 'admin'")
+    let admin_exists = sqlx::query(include_str!("../sql/users/check_admin_exists.sql"))
+        .bind("admin")
         .fetch_optional(pool)
         .await?
         .is_some();
     
     // 如果管理员不存在，则创建默认管理员
     if !admin_exists {
-        sqlx::query(
-            r#"
-            INSERT INTO users (username, password, role)
-            VALUES ('admin', 'adminpass', 'admin')
-            "#,
-        )
-        .execute(pool)
-        .await?;
+        sqlx::query(include_str!("../sql/users/insert_default_admin.sql"))
+            .execute(pool)
+            .await?;
     }
     
     // 检查普通用户是否存在
-    let user_exists = sqlx::query("SELECT 1 FROM users WHERE username = 'user'")
+    let user_exists = sqlx::query(include_str!("../sql/users/check_user_exists.sql"))
+        .bind("user")
         .fetch_optional(pool)
         .await?
         .is_some();
     
     // 如果普通用户不存在，则创建默认普通用户
     if !user_exists {
-        sqlx::query(
-            r#"
-            INSERT INTO users (username, password, role)
-            VALUES ('user', 'userpass', 'regular')
-            "#,
-        )
-        .execute(pool)
-        .await?;
+        sqlx::query(include_str!("../sql/users/insert_default_user.sql"))
+            .execute(pool)
+            .await?;
     }
     
     Ok(())
@@ -139,11 +86,7 @@ pub struct UserRepo;
 impl UserRepo {
     // 获取所有用户
     pub async fn get_all_users(pool: &DbPool) -> Result<Vec<User>, DbError> {
-        let users = sqlx::query(
-            r#"
-            SELECT id, username, password, role FROM users
-            "#,
-        )
+        let users = sqlx::query(include_str!("../sql/users/get_all.sql"))
         .fetch_all(pool)
         .await?
         .into_iter()
@@ -167,12 +110,7 @@ impl UserRepo {
     
     // 根据用户名获取用户
     pub async fn get_user_by_username(pool: &DbPool, username: &str) -> Result<Option<User>, DbError> {
-        let user = sqlx::query(
-            r#"
-            SELECT id, username, password, role FROM users
-            WHERE username = ?
-            "#,
-        )
+        let user = sqlx::query(include_str!("../sql/users/get_by_username.sql"))
         .bind(username)
         .fetch_optional(pool)
         .await?
@@ -195,12 +133,7 @@ impl UserRepo {
     
     // 根据ID获取用户
     pub async fn get_user_by_id(pool: &DbPool, id: i32) -> Result<Option<User>, DbError> {
-        let user = sqlx::query(
-            r#"
-            SELECT id, username, password, role FROM users
-            WHERE id = ?
-            "#,
-        )
+        let user = sqlx::query(include_str!("../sql/users/get_by_id.sql"))
         .bind(id)
         .fetch_optional(pool)
         .await?
@@ -228,12 +161,7 @@ impl UserRepo {
             UserRole::Regular => "regular",
         };
         
-        let result = sqlx::query(
-            r#"
-            INSERT INTO users (username, password, role)
-            VALUES (?, ?, ?)
-            "#,
-        )
+        let result = sqlx::query(include_str!("../sql/users/create.sql"))
         .bind(username)
         .bind(password)
         .bind(role_str)
@@ -251,13 +179,7 @@ impl UserRepo {
         if let Some(user) = user {
             // 更新密码
             if let Some(password) = password {
-                sqlx::query(
-                    r#"
-                    UPDATE users
-                    SET password = ?
-                    WHERE id = ?
-                    "#,
-                )
+                sqlx::query(include_str!("../sql/users/update_password.sql"))
                 .bind(password)
                 .bind(user.id)
                 .execute(pool)
@@ -271,13 +193,7 @@ impl UserRepo {
                     UserRole::Regular => "regular",
                 };
                 
-                sqlx::query(
-                    r#"
-                    UPDATE users
-                    SET role = ?
-                    WHERE id = ?
-                    "#,
-                )
+                sqlx::query(include_str!("../sql/users/update_role.sql"))
                 .bind(role_str)
                 .bind(user.id)
                 .execute(pool)
@@ -292,12 +208,7 @@ impl UserRepo {
     
     // 删除用户
     pub async fn delete_user(pool: &DbPool, username: &str) -> Result<bool, DbError> {
-        let result = sqlx::query(
-            r#"
-            DELETE FROM users
-            WHERE username = ?
-            "#,
-        )
+        let result = sqlx::query(include_str!("../sql/users/delete_by_username.sql"))
         .bind(username)
         .execute(pool)
         .await?;
@@ -312,12 +223,7 @@ pub struct SessionRepo;
 impl SessionRepo {
     // 创建新会话
     pub async fn create_session(pool: &DbPool, session_id: &str, user_id: i32) -> Result<(), DbError> {
-        sqlx::query(
-            r#"
-            INSERT INTO sessions (id, user_id)
-            VALUES (?, ?)
-            "#,
-        )
+        sqlx::query(include_str!("../sql/sessions/create.sql"))
         .bind(session_id)
         .bind(user_id)
         .execute(pool)
@@ -328,12 +234,7 @@ impl SessionRepo {
     
     // 获取会话
     pub async fn get_session(pool: &DbPool, session_id: &str) -> Result<Option<i32>, DbError> {
-        let user_id = sqlx::query(
-            r#"
-            SELECT user_id FROM sessions
-            WHERE id = ?
-            "#,
-        )
+        let user_id = sqlx::query(include_str!("../sql/sessions/get_by_id.sql"))
         .bind(session_id)
         .fetch_optional(pool)
         .await?
@@ -344,12 +245,7 @@ impl SessionRepo {
     
     // 删除会话
     pub async fn delete_session(pool: &DbPool, session_id: &str) -> Result<(), DbError> {
-        sqlx::query(
-            r#"
-            DELETE FROM sessions
-            WHERE id = ?
-            "#,
-        )
+        sqlx::query(include_str!("../sql/sessions/delete_by_id.sql"))
         .bind(session_id)
         .execute(pool)
         .await?;
@@ -359,16 +255,11 @@ impl SessionRepo {
     
     // 清理指定用户的所有会话
     pub async fn clear_user_sessions(pool: &DbPool, user_id: i32) -> Result<(), DbError> {
-        sqlx::query(
-            r#"
-            DELETE FROM sessions
-            WHERE user_id = ?
-            "#,
-        )
-        .bind(user_id)
-        .execute(pool)
-        .await?;
-        
+        sqlx::query(include_str!("../sql/sessions/clear_by_user_id.sql"))
+            .bind(user_id)
+            .execute(pool)
+            .await?;
+
         Ok(())
     }
 }
@@ -385,12 +276,7 @@ impl UploadRepo {
         file_path: &str,
         file_size: i64,
     ) -> Result<i32, DbError> {
-        let result = sqlx::query(
-            r#"
-            INSERT INTO uploads (user_id, filename, file_path, file_size)
-            VALUES (?, ?, ?, ?)
-            "#,
-        )
+        let result = sqlx::query(include_str!("../sql/uploads/record_upload.sql"))
         .bind(user_id)
         .bind(filename)
         .bind(file_path)
@@ -403,14 +289,7 @@ impl UploadRepo {
     
     // 获取用户的上传记录
     pub async fn get_user_uploads(pool: &DbPool, user_id: i32) -> Result<Vec<sqlx::mysql::MySqlRow>, DbError> {
-        let uploads = sqlx::query(
-            r#"
-            SELECT id, filename, file_path, file_size, uploaded_at
-            FROM uploads
-            WHERE user_id = ?
-            ORDER BY uploaded_at DESC
-            "#,
-        )
+        let uploads = sqlx::query(include_str!("../sql/uploads/get_user_uploads.sql"))
         .bind(user_id)
         .fetch_all(pool)
         .await?;
@@ -420,14 +299,7 @@ impl UploadRepo {
     
     // 获取所有上传记录（管理员使用）
     pub async fn get_all_uploads(pool: &DbPool) -> Result<Vec<sqlx::mysql::MySqlRow>, DbError> {
-        let uploads = sqlx::query(
-            r#"
-            SELECT u.id, u.filename, u.file_path, u.file_size, u.uploaded_at, us.username
-            FROM uploads u
-            JOIN users us ON u.user_id = us.id
-            ORDER BY u.uploaded_at DESC
-            "#,
-        )
+        let uploads = sqlx::query(include_str!("../sql/uploads/get_all_uploads.sql"))
         .fetch_all(pool)
         .await?;
         
@@ -441,12 +313,7 @@ pub struct TestRepo;
 impl TestRepo {
     // 创建新的测试记录
     pub async fn create_test(pool: &DbPool, user_id: i32) -> Result<i32, DbError> {
-        let result = sqlx::query(
-            r#"
-            INSERT INTO test_results (user_id, status)
-            VALUES (?, 'Pending')
-            "#,
-        )
+        let result = sqlx::query(include_str!("../sql/test_results/create.sql"))
         .bind(user_id)
         .execute(pool)
         .await?;
@@ -468,13 +335,7 @@ impl TestRepo {
             crate::models::TestStatus::Error => "Error",
         };
         
-        sqlx::query(
-            r#"
-            UPDATE test_results
-            SET status = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-            "#,
-        )
+        sqlx::query(include_str!("../sql/test_results/update_status.sql"))
         .bind(status_str)
         .bind(id)
         .execute(pool)
@@ -499,13 +360,7 @@ impl TestRepo {
             crate::models::TestStatus::Error => "Error",
         };
         
-        sqlx::query(
-            r#"
-            UPDATE test_results
-            SET status = ?, output = ?, error = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-            "#,
-        )
+        sqlx::query(include_str!("../sql/test_results/update_result.sql"))
         .bind(status_str)
         .bind(output)
         .bind(error)
